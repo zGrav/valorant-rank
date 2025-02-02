@@ -1,67 +1,57 @@
 <?php
-// Obtain your API token from https://docs.henrikdev.xyz/authentication-and-authorization
-const API_TOKEN = "TOKEN";
+$name = isset($_GET['name']) ? htmlspecialchars(trim($_GET['name'])) : null;
+$tag = isset($_GET['tag']) ? htmlspecialchars(trim($_GET['tag'])) : null;
+$region = isset($_GET['region']) ? htmlspecialchars(trim($_GET['region'])) : null;
+$format = isset($_GET['format']) ? htmlspecialchars(trim($_GET['format'])) : null;
 
-$name = $_GET['name'] ?? null;
-$tag = $_GET['tag'] ?? null;
-$region = $_GET['region'] ?? null;
-$format = $_GET['format'] ?? null;
-
-if (!$region) {
+if (!$region || !$name || !$tag) {
     http_response_code(400);
     header('Content-Type: application/json');
     echo json_encode([
-        "error" => "Please provide region as query parameter. (Available regions: eu/na/ap/kr/latam/br)"
+        "error" => "Missing required parameters: 'region', 'name', and 'tag'."
     ]);
     exit;
 }
 
-if (!$name || !$tag) {
+$allowedRegions = ['eu', 'na', 'ap', 'kr', 'latam', 'br'];
+
+if (!in_array($region, $allowedRegions)) {
     http_response_code(400);
-    header('Content-Type: application/json');
-    echo json_encode([
-        "error" => "Please provide name and tag as query parameters."
-    ]);
+    echo json_encode(["error" => "Invalid region provided."]);
     exit;
 }
 
-$apiUrl = "https://api.henrikdev.xyz/valorant/v1/mmr/" . urlencode($region) . "/" . urlencode($name) . "/" . urlencode($tag);
+$contentType = ($format === 'message') ? 'text/plain' : 'application/json';
 
-$options = [
-    "http" => [
-        "header" => "Authorization: " . API_TOKEN
-    ]
-];
+$queryParams = http_build_query([
+    'name' => $name,
+    'tag' => $tag,
+    'region' => $region,
+    'format' => $format
+]);
 
-$context = stream_context_create($options);
+$apiUrl = "http://localhost:1336/rank?$queryParams";
 
-$response = file_get_contents($apiUrl, false, $context);
+$ch = curl_init();
+curl_setopt($ch, CURLOPT_URL, $apiUrl);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_TIMEOUT, 5);
 
-if ($response === FALSE) {
+$response = curl_exec($ch);
+$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+if (curl_errno($ch) || $httpCode !== 200) {
+    error_log('cURL Error: ' . curl_error($ch));
     http_response_code(500);
     header('Content-Type: application/json');
     echo json_encode([
-        "error" => "Failed to retrieve rank information."
+        "error" => "Failed to retrieve data from the Node.js server."
     ]);
+    curl_close($ch);
     exit;
 }
 
-$data = json_decode($response, true);
+curl_close($ch);
 
-$currenttierpatched = $data['data']['currenttierpatched'] ?? 'Unknown';
-$ranking_in_tier = $data['data']['ranking_in_tier'] ?? 0;
-
-if ($format === 'message') {
-    header('Content-Type: text/plain');
-    echo "{$name}#{$tag} (" . strtoupper($region) . ") - {$currenttierpatched} - {$ranking_in_tier} RR";
-} else {
-    header('Content-Type: application/json');
-    echo json_encode([
-        "name" => $name,
-        "tag" => $tag,
-        "nameAndTag" => "{$name}#{$tag}",
-        "region" => $region,
-        "rank" => $currenttierpatched,
-        "rankPoints" => $ranking_in_tier
-    ]);
-}
+header("Content-Type: $contentType");
+echo $response;
