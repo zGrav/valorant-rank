@@ -12,8 +12,7 @@ const API_TOKEN = "TOKEN";
 
 const limiter = rateLimit({
   windowMs: 30 * 1000,
-  max: 10,
-  message: "Too many requests from this IP, please try again later.",
+  max: 10
 });
 
 app.use(limiter);

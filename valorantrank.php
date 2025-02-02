@@ -41,11 +41,13 @@ $response = curl_exec($ch);
 $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 
 if (curl_errno($ch) || $httpCode !== 200) {
-    error_log('cURL Error: ' . curl_error($ch));
+    $errorMessage = curl_error($ch);
+    error_log('cURL Error: ' . $errorMessage);
     http_response_code(500);
     header('Content-Type: application/json');
     echo json_encode([
-        "error" => "Failed to retrieve data from the Node.js server."
+        "error" => "Failed to retrieve data from the server.",
+        "details" => $errorMessage
     ]);
     curl_close($ch);
     exit;
