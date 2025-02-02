@@ -17,6 +17,7 @@ $allowedRegions = ['eu', 'na', 'ap', 'kr', 'latam', 'br'];
 
 if (!in_array($region, $allowedRegions)) {
     http_response_code(400);
+    header('Content-Type: application/json');
     echo json_encode(["error" => "Invalid region provided."]);
     exit;
 }
